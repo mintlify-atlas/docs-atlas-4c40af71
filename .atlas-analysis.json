@@ -1,0 +1,104 @@
+{
+  "projectType": "api-service",
+  "projectName": "Stripe Payments API",
+  "projectDescription": "Backend API for managing Stripe customers, cards, payments, refunds, and webhooks",
+  "theme": "aspen",
+  "primaryColor": "#635BFF",
+  "lightColor": "#0073E6",
+  "darkColor": "#0A2540",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/complete-workflow",
+              "guides/testing-webhooks",
+              "guides/docker-deployment",
+              "guides/error-handling"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Customers",
+            "pages": [
+              "api/customers/create",
+              "api/customers/get-all",
+              "api/customers/get-by-id",
+              "api/customers/update",
+              "api/customers/delete"
+            ]
+          },
+          {
+            "group": "Cards",
+            "pages": [
+              "api/cards/create-token",
+              "api/cards/assign",
+              "api/cards/set-default",
+              "api/cards/get-by-user"
+            ]
+          },
+          {
+            "group": "Payments",
+            "pages": [
+              "api/payments/create",
+              "api/payments/confirm",
+              "api/payments/get-all",
+              "api/payments/get-by-id",
+              "api/payments/refund",
+              "api/payments/get-refunds"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "api/webhooks/stripe-webhook"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Complete Stripe integration for payment processing",
+    "Customer and card management",
+    "Payment intent creation and confirmation",
+    "Refund processing",
+    "Webhook event handling with signature verification",
+    "Standardized error handling and responses",
+    "OpenAPI/Swagger documentation",
+    "Docker support with published image"
+  ],
+  "publicApiSurface": [
+    "POST /api/customers/create",
+    "GET /api/customers",
+    "GET /api/customers/:id",
+    "PUT /api/customers/update",
+    "DELETE /api/customers/delete",
+    "POST /api/cards/create",
+    "POST /api/cards/assign",
+    "POST /api/cards/default",
+    "GET /api/cards/:id",
+    "POST /api/payments/create",
+    "POST /api/payments/confirm",
+    "GET /api/payments",
+    "GET /api/payments/:paymentIntentId",
+    "POST /api/payments/refund",
+    "GET /api/payments/refund/payment-intent/:paymentIntentId",
+    "POST /api/webhooks/stripe"
+  ]
+}
