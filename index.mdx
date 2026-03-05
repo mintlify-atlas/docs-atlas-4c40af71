@@ -122,12 +122,12 @@ const card = await fetch('/api/cards/create', {
   })
 });
 
-// 3. Create a payment intent
+// 3. Create a payment intent (amount in euros, not cents)
 const payment = await fetch('/api/payments/create', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    amount: 5000,
+    amount: 50, // €50.00 (API multiplies by 100 internally)
     customer_id: customer.data.id,
     payment_method: card.data.token_id
   })

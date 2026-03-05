@@ -8,16 +8,16 @@ icon: 'credit-card'
 
 Creates a new payment intent in Stripe. A payment intent represents an intention to collect payment from a customer and tracks the lifecycle of the payment process from creation through completion.
 
-<Note>
-  The amount should be provided in the **smallest currency unit** (e.g., cents for USD, centavos for EUR). For example, to charge €10.00, pass `1000`.
-</Note>
+<Warning>
+  The amount should be provided in **whole currency units** (e.g., euros, not cents). The API automatically multiplies by 100 internally to convert to cents for Stripe. For example, to charge €10.00, pass `10`.
+</Warning>
 
 ### Request Body
 
 <ParamField body="amount" type="integer" required>
-  The amount to charge in the smallest currency unit (cents). The API will multiply this by 100 internally.
+  The amount to charge in whole currency units (euros). The API multiplies this by 100 internally to convert to cents.
   
-  Example: `1000` for €10.00
+  Example: `10` for €10.00 (becomes 1000 cents internally)
 </ParamField>
 
 <ParamField body="customer_id" type="string" required>
