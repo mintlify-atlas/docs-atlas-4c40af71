@@ -1,0 +1,290 @@
+---
+title: 'Get Payment Intent'
+description: 'Retrieve a specific payment intent by ID'
+icon: 'magnifying-glass'
+---
+
+## GET /api/payments/:paymentIntentId
+
+Retrieves detailed information about a specific payment intent by its ID. Use this endpoint to check the status of a payment or retrieve payment details.
+
+### Path Parameters
+
+<ParamField path="paymentIntentId" type="string" required>
+  The unique identifier for the payment intent. Must be a valid Stripe payment intent ID starting with `pi_`.
+  
+  Example: `pi_3OJxRe2eZvKYlo2C0XYZ1234`
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message describing the result
+  
+  Example: `Pago obtenido correctamente`
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The complete Stripe PaymentIntent object
+  
+  <Expandable title="PaymentIntent Object">
+    <ResponseField name="id" type="string">
+      Unique identifier for the payment intent
+    </ResponseField>
+    
+    <ResponseField name="object" type="string">
+      Always `payment_intent`
+    </ResponseField>
+    
+    <ResponseField name="amount" type="integer">
+      The amount in cents
+    </ResponseField>
+    
+    <ResponseField name="amount_received" type="integer">
+      Amount received in cents (populated after successful payment)
+    </ResponseField>
+    
+    <ResponseField name="currency" type="string">
+      Three-letter ISO currency code
+    </ResponseField>
+    
+    <ResponseField name="customer" type="string">
+      The customer ID associated with this payment
+    </ResponseField>
+    
+    <ResponseField name="payment_method" type="string">
+      The payment method ID used or to be used
+    </ResponseField>
+    
+    <ResponseField name="payment_method_types" type="array">
+      Array of payment method types (e.g., `["card"]`)
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      Current status of the payment intent:
+      - `requires_payment_method`: No payment method attached yet
+      - `requires_confirmation`: Ready to be confirmed
+      - `requires_action`: Requires additional customer action (e.g., 3D Secure)
+      - `processing`: Payment is being processed
+      - `succeeded`: Payment completed successfully
+      - `canceled`: Payment was canceled
+    </ResponseField>
+    
+    <ResponseField name="charges" type="object">
+      Information about charges made against this payment intent
+      
+      <Expandable title="Charges">
+        <ResponseField name="object" type="string">
+          Always `list`
+        </ResponseField>
+        
+        <ResponseField name="data" type="array">
+          Array of charge objects
+          
+          <Expandable title="Charge">
+            <ResponseField name="id" type="string">
+              Unique charge identifier (starts with `ch_`)
+            </ResponseField>
+            
+            <ResponseField name="amount" type="integer">
+              Amount charged in cents
+            </ResponseField>
+            
+            <ResponseField name="status" type="string">
+              Charge status: `succeeded`, `pending`, or `failed`
+            </ResponseField>
+            
+            <ResponseField name="paid" type="boolean">
+              Whether the charge was paid successfully
+            </ResponseField>
+            
+            <ResponseField name="refunded" type="boolean">
+              Whether the charge has been refunded
+            </ResponseField>
+            
+            <ResponseField name="amount_refunded" type="integer">
+              Amount that has been refunded in cents
+            </ResponseField>
+          </Expandable>
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="latest_charge" type="string">
+      The ID of the most recent charge (starts with `ch_`)
+    </ResponseField>
+    
+    <ResponseField name="created" type="integer">
+      Unix timestamp of when the payment intent was created
+    </ResponseField>
+    
+    <ResponseField name="livemode" type="boolean">
+      Whether this is a live mode payment or test mode
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Success Response
+
+<CodeGroup>
+```json 200 OK
+{
+  "status": true,
+  "message": "Pago obtenido correctamente",
+  "data": {
+    "id": "pi_3OJxRe2eZvKYlo2C0XYZ1234",
+    "object": "payment_intent",
+    "amount": 100000,
+    "amount_received": 100000,
+    "currency": "eur",
+    "customer": "cus_NffrFeUfNV2Hib",
+    "payment_method": "pm_1Nvmn6LkdIwHu7ix",
+    "payment_method_types": ["card"],
+    "status": "succeeded",
+    "charges": {
+      "object": "list",
+      "data": [
+        {
+          "id": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+          "object": "charge",
+          "amount": 100000,
+          "currency": "eur",
+          "status": "succeeded",
+          "paid": true,
+          "refunded": false,
+          "amount_refunded": 0
+        }
+      ],
+      "has_more": false
+    },
+    "latest_charge": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+    "created": 1672531200,
+    "livemode": false
+  }
+}
+```
+</CodeGroup>
+
+### Error Responses
+
+<CodeGroup>
+```json 400 Bad Request
+{
+  "status": false,
+  "message": "paymentIntentId es requerido",
+  "code": null
+}
+```
+
+```json 404 Not Found
+{
+  "status": false,
+  "message": "No such payment_intent: pi_invalid123",
+  "code": "resource_missing"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "status": false,
+  "message": "Error interno del servidor",
+  "code": null
+}
+```
+</CodeGroup>
+
+### Code Examples
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.example.com/api/payments/pi_3OJxRe2eZvKYlo2C0XYZ1234 \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript JavaScript/Node.js
+const getPaymentById = async (paymentIntentId) => {
+  const response = await fetch(`https://api.example.com/api/payments/${paymentIntentId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': 'Bearer YOUR_API_KEY'
+    }
+  });
+  
+  const data = await response.json();
+  const payment = data.data;
+  
+  console.log(`Payment Status: ${payment.status}`);
+  console.log(`Amount: €${payment.amount / 100}`);
+  
+  if (payment.status === 'succeeded') {
+    console.log(`Charge ID: ${payment.latest_charge}`);
+  }
+  
+  return data;
+};
+
+// Usage
+getPaymentById('pi_3OJxRe2eZvKYlo2C0XYZ1234');
+```
+</CodeGroup>
+
+## Use Cases
+
+### Check Payment Status
+
+```javascript
+const checkPaymentStatus = async (paymentIntentId) => {
+  const response = await fetch(`/api/payments/${paymentIntentId}`);
+  const { data } = await response.json();
+  
+  switch (data.status) {
+    case 'succeeded':
+      console.log('Payment completed successfully!');
+      break;
+    case 'processing':
+      console.log('Payment is being processed...');
+      break;
+    case 'requires_action':
+      console.log('Payment requires customer action');
+      break;
+    case 'canceled':
+      console.log('Payment was canceled');
+      break;
+    default:
+      console.log(`Payment status: ${data.status}`);
+  }
+  
+  return data.status;
+};
+```
+
+### Get Charge Information
+
+```javascript
+const getChargeInfo = async (paymentIntentId) => {
+  const response = await fetch(`/api/payments/${paymentIntentId}`);
+  const { data } = await response.json();
+  
+  if (data.charges.data.length > 0) {
+    const charge = data.charges.data[0];
+    
+    return {
+      chargeId: charge.id,
+      amount: charge.amount,
+      paid: charge.paid,
+      refunded: charge.refunded,
+      amountRefunded: charge.amount_refunded
+    };
+  }
+  
+  return null;
+};
+```
+
+<Note>
+  This endpoint is useful for polling payment status after creation or confirmation. However, for production applications, it's recommended to use Stripe webhooks to receive real-time payment updates instead of polling.
+</Note>

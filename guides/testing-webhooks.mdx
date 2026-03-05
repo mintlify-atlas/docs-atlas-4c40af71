@@ -1,0 +1,293 @@
+---
+title: Testing Webhooks
+description: Learn how to test Stripe webhooks locally using different methods
+---
+
+Stripe webhooks allow your application to receive real-time notifications about events in your Stripe account. This guide shows you how to test webhooks during local development.
+
+## Webhook Implementation
+
+The API implements webhook handling at `/api/webhooks/stripe` with signature verification and event processing. Here's how it works:
+
+```javascript
+// Webhook endpoint with signature verification
+const signature = req.headers['stripe-signature'];
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+// Verify webhook signature
+const event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+
+// Process different event types
+switch (event.type) {
+  case 'payment_intent.succeeded':
+    // Handle successful payment
+    break;
+  case 'payment_intent.payment_failed':
+    // Handle failed payment
+    break;
+  case 'refund.created':
+    // Handle refund creation
+    break;
+  case 'charge.refunded':
+    // Handle charge refund
+    break;
+}
+```
+
+<Note>
+  The webhook endpoint requires raw request body for signature verification. Make sure your middleware doesn't parse the body as JSON before the webhook handler receives it.
+</Note>
+
+## Testing Methods
+
+There are two primary methods for testing webhooks locally:
+
+<CardGroup cols={2}>
+  <Card title="Stripe CLI" icon="terminal">
+    Official Stripe tool that forwards webhook events to your local server
+  </Card>
+  <Card title="ngrok" icon="network-wired">
+    Creates a public URL that tunnels to your localhost
+  </Card>
+</CardGroup>
+
+## Method 1: Using Stripe CLI
+
+The Stripe CLI is the recommended approach for testing webhooks locally.
+
+<Steps>
+
+### Install Stripe CLI
+
+<CodeGroup>
+
+```bash macOS
+brew install stripe/stripe-cli/stripe
+```
+
+```bash Linux
+wget https://github.com/stripe/stripe-cli/releases/latest/download/stripe_linux_x86_64.tar.gz
+tar -xvf stripe_linux_x86_64.tar.gz
+sudo mv stripe /usr/local/bin/
+```
+
+```bash Windows
+scoop install stripe
+```
+
+</CodeGroup>
+
+### Authenticate with Stripe
+
+```bash
+stripe login
+```
+
+This will open your browser for authentication.
+
+### Forward Events to Local Server
+
+Start forwarding webhook events to your local application:
+
+```bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+```
+
+**Expected Output:**
+
+```
+Ready! Your webhook signing secret is whsec_xxxxxxxxxxxxx (^C to quit)
+```
+
+<Warning>
+  Copy the webhook signing secret and add it to your `.env` file as `STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxx`
+</Warning>
+
+### Trigger Test Events
+
+In a new terminal, trigger test events:
+
+```bash
+stripe trigger payment_intent.succeeded
+```
+
+You'll see the event in your application logs:
+
+```
+Webhook: payment_intent.succeeded pi_xxxxxxxxxxxxx
+```
+
+</Steps>
+
+## Method 2: Using ngrok
+
+ngrok creates a public URL that tunnels to your local server, allowing Stripe to send real webhook events.
+
+<Steps>
+
+### Install ngrok
+
+```bash
+# macOS
+brew install ngrok
+
+# Or download from https://ngrok.com/download
+```
+
+### Start ngrok Tunnel
+
+```bash
+ngrok http 3000
+```
+
+**Expected Output:**
+
+```
+Forwarding  https://abc123.ngrok.io -> http://localhost:3000
+```
+
+### Configure Stripe Webhook
+
+1. Go to the [Stripe Dashboard](https://dashboard.stripe.com/webhooks)
+2. Click "Add endpoint"
+3. Enter your ngrok URL: `https://abc123.ngrok.io/api/webhooks/stripe`
+4. Select events to listen to
+5. Copy the webhook signing secret
+6. Add it to your `.env` file as `STRIPE_WEBHOOK_SECRET`
+
+### Test with Real Events
+
+Perform actions in your Stripe Dashboard or through the API, and your local server will receive the webhook events.
+
+</Steps>
+
+<Warning>
+  ngrok URLs change each time you restart (on the free plan). Update your Stripe webhook endpoint accordingly.
+</Warning>
+
+## Common Webhook Events
+
+The API handles these webhook events:
+
+| Event Type | Description | When It Fires |
+|------------|-------------|---------------|
+| `payment_intent.succeeded` | Payment completed successfully | After confirming a payment intent |
+| `payment_intent.payment_failed` | Payment failed | When card is declined or has insufficient funds |
+| `refund.created` | Refund initiated | When a refund is created |
+| `charge.refunded` | Charge refunded | When a charge is refunded |
+
+## Verifying Webhook Signatures
+
+The API automatically verifies webhook signatures to ensure events are from Stripe:
+
+```javascript
+try {
+  event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+} catch (error) {
+  return res.status(400).json({
+    status: false,
+    message: `Webhook signature verification failed: ${error.message}`,
+  });
+}
+```
+
+<Card title="Security Best Practice" icon="shield-check">
+  Always verify webhook signatures in production to prevent unauthorized parties from sending fake webhook events to your endpoint.
+</Card>
+
+## Error Handling
+
+### Missing Signature
+
+```json
+{
+  "status": false,
+  "message": "Missing stripe-signature header"
+}
+```
+
+### Missing Webhook Secret
+
+```json
+{
+  "status": false,
+  "message": "Missing STRIPE_WEBHOOK_SECRET in environment variables"
+}
+```
+
+### Invalid Signature
+
+```json
+{
+  "status": false,
+  "message": "Webhook signature verification failed: ..."
+}
+```
+
+## Testing Workflow
+
+<Steps>
+
+<Step title="Start your local server">
+  ```bash
+  npm start
+  ```
+</Step>
+
+<Step title="Start webhook forwarding">
+  ```bash
+  stripe listen --forward-to localhost:3000/api/webhooks/stripe
+  ```
+</Step>
+
+<Step title="Update your .env file">
+  Add the webhook signing secret from the CLI output
+</Step>
+
+<Step title="Trigger test events">
+  ```bash
+  stripe trigger payment_intent.succeeded
+  stripe trigger payment_intent.payment_failed
+  stripe trigger refund.created
+  ```
+</Step>
+
+<Step title="Monitor your logs">
+  Watch your application console for webhook event logs
+</Step>
+
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+
+<Accordion title="Webhook signature verification fails">
+  Make sure you're using the correct webhook secret for your environment. The Stripe CLI generates a different secret than the Stripe Dashboard.
+  
+  - CLI secret: Starts with `whsec_` (from `stripe listen` output)
+  - Dashboard secret: Starts with `whsec_` (from webhook endpoint settings)
+</Accordion>
+
+<Accordion title="Events not being received">
+  1. Verify your server is running on the correct port
+  2. Check that the webhook URL is correct
+  3. Ensure no firewall is blocking the connection
+  4. For ngrok, confirm the tunnel is active
+</Accordion>
+
+<Accordion title="Raw body parsing issue">
+  The webhook endpoint requires the raw request body. If you're using body parsing middleware, you may need to configure it to skip webhook routes:
+  
+  ```javascript
+  app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
+  ```
+</Accordion>
+
+</AccordionGroup>
+
+## Next Steps
+
+- Review the [complete payment workflow](/guides/complete-workflow)
+- Learn about [error handling patterns](/guides/error-handling)
+- Set up [Docker deployment](/guides/docker-deployment)

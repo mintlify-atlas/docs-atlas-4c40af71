@@ -1,0 +1,213 @@
+---
+title: 'Set Default Card'
+description: 'Set a card as the default payment method for a customer'
+api: 'POST /api/cards/default'
+---
+
+Sets a specific card as the default payment source for a customer. This card will be used for automatic payments unless otherwise specified.
+
+## Request Body
+
+<ParamField body="userId" type="string" required>
+  The Stripe customer ID. Must start with `cus_`.
+  
+  Example: `"cus_QRs9eKZ4xUzN2TP9"`
+</ParamField>
+
+<ParamField body="default_source" type="string" required>
+  The card ID to set as default. Must start with `card_` or `src_`.
+  
+  This must be a card that's already attached to the customer. Use [Assign Card](/api/cards/assign) first if needed.
+  
+  Example: `"card_1QRs9eKZ4xUzN2TPabcdefgh"`
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="boolean">
+  Indicates if the request was successful (`true`) or failed (`false`).
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message describing the result.
+  
+  Example: `"Método de pago actualizado con éxito"`
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The updated Stripe customer object. This is the raw customer object from Stripe containing all customer information.
+  
+  <Expandable title="Customer Object (selected fields)">
+    <ResponseField name="id" type="string">
+      The customer's unique identifier.
+    </ResponseField>
+    
+    <ResponseField name="default_source" type="string">
+      The ID of the default payment source for the customer.
+    </ResponseField>
+    
+    <ResponseField name="email" type="string">
+      The customer's email address.
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      The customer's full name.
+    </ResponseField>
+    
+    <ResponseField name="sources" type="object">
+      The customer's payment sources (cards).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Request
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://your-api.com/api/cards/default \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "cus_QRs9eKZ4xUzN2TP9",
+    "default_source": "card_1QRs9eKZ4xUzN2TPabcdefgh"
+  }'
+```
+
+```javascript Node.js
+const response = await fetch('https://your-api.com/api/cards/default', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    userId: 'cus_QRs9eKZ4xUzN2TP9',
+    default_source: 'card_1QRs9eKZ4xUzN2TPabcdefgh'
+  })
+});
+
+const data = await response.json();
+console.log(data);
+```
+</CodeGroup>
+
+## Example Response
+
+<CodeGroup>
+```json 200 - Success
+{
+  "status": true,
+  "message": "Método de pago actualizado con éxito",
+  "data": {
+    "id": "cus_QRs9eKZ4xUzN2TP9",
+    "object": "customer",
+    "email": "[email protected]",
+    "name": "John Doe",
+    "phone": "+1234567890",
+    "default_source": "card_1QRs9eKZ4xUzN2TPabcdefgh",
+    "created": 1710259200,
+    "sources": {
+      "object": "list",
+      "data": [
+        {
+          "id": "card_1QRs9eKZ4xUzN2TPabcdefgh",
+          "object": "card",
+          "brand": "Visa",
+          "last4": "4242",
+          "exp_month": 12,
+          "exp_year": 2026
+        }
+      ]
+    }
+  }
+}
+```
+
+```json 400 - Bad Request
+{
+  "status": false,
+  "message": "userId y default_source son requeridos",
+  "code": null
+}
+```
+
+```json 404 - Customer Not Found
+{
+  "status": false,
+  "message": "No such customer: cus_invalid",
+  "code": "resource_missing"
+}
+```
+
+```json 400 - Card Not Found
+{
+  "status": false,
+  "message": "No such source: card_invalid",
+  "code": "resource_missing"
+}
+```
+
+```json 500 - Server Error
+{
+  "status": false,
+  "message": "Error updating default payment method",
+  "code": null
+}
+```
+</CodeGroup>
+
+## Use Cases
+
+### Setting Default After Card Assignment
+
+After assigning a new card to a customer, you may want to set it as the default:
+
+```javascript Node.js
+// First, assign the card
+const assignResponse = await fetch('https://your-api.com/api/cards/assign', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    userId: 'cus_QRs9eKZ4xUzN2TP9',
+    source: 'tok_1QRs9eKZ4xUzN2TP9vQqWXYZ'
+  })
+});
+const assignData = await assignResponse.json();
+
+// Then set it as default
+const defaultResponse = await fetch('https://your-api.com/api/cards/default', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    userId: 'cus_QRs9eKZ4xUzN2TP9',
+    default_source: assignData.data.cardId
+  })
+});
+const defaultData = await defaultResponse.json();
+console.log('Default card set:', defaultData);
+```
+
+### Switching Default Cards
+
+If a customer has multiple cards and wants to switch the default:
+
+```javascript Node.js
+// Get the customer's cards first
+const cardsResponse = await fetch('https://your-api.com/api/cards/cus_QRs9eKZ4xUzN2TP9');
+const cardsData = await cardsResponse.json();
+
+// User selects a different card
+const selectedCardId = cardsData.data[1].id; // Second card
+
+// Update default
+const response = await fetch('https://your-api.com/api/cards/default', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    userId: 'cus_QRs9eKZ4xUzN2TP9',
+    default_source: selectedCardId
+  })
+});
+```
+
+<Note>
+  The default payment source will be automatically used for subscription charges and invoice payments when no specific payment method is provided.
+</Note>

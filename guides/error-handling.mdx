@@ -1,0 +1,481 @@
+---
+title: Error Handling
+description: Understand error handling patterns, response formats, and common error codes in the API
+---
+
+The Stripe Payments API implements a consistent error handling system that provides meaningful error messages and appropriate HTTP status codes.
+
+## Error Response Format
+
+All error responses follow a consistent structure:
+
+```json
+{
+  "status": false,
+  "message": "Error description",
+  "code": "ERROR_CODE"
+}
+```
+
+**Response Fields:**
+
+- `status`: Always `false` for errors
+- `message`: Human-readable error description
+- `code`: Optional error code (e.g., Stripe error codes)
+
+<Note>
+  In development mode (`NODE_ENV !== 'production'`), error responses include a `stack` field with the full stack trace.
+</Note>
+
+## Error Handling Implementation
+
+The API uses a centralized error handling system built on three components:
+
+### 1. ApiError Class
+
+Custom error class for operational errors:
+
+```javascript
+class ApiError extends Error {
+  constructor(statusCode, message, isOperational = true, stack = '') {
+    super(message);
+    this.statusCode = statusCode;
+    this.isOperational = isOperational;
+    if (stack) {
+      this.stack = stack;
+    } else {
+      Error.captureStackTrace(this, this.constructor);
+    }
+  }
+}
+```
+
+**Usage in Controllers:**
+
+```javascript
+if (!email || !name || !phone) {
+  throw new ApiError(400, 'email, name y phone son requeridos');
+}
+```
+
+### 2. catchAsync Middleware
+
+Wrapper function that catches async errors and passes them to error handlers:
+
+```javascript
+export const catchAsync = (fn) => (req, res, next) => {
+  fn(req, res, next).catch(next);
+};
+```
+
+**Usage:**
+
+```javascript
+router.post('/customers', catchAsync(createCustomer));
+```
+
+This eliminates the need for try-catch blocks in every controller.
+
+### 3. Global Error Middleware
+
+Centralized error handler that formats all errors:
+
+```javascript
+export const apiError = (err, req, res, next) => {
+  const statusCode = err.statusCode || err.raw?.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+  const payload = {
+    status: false,
+    message,
+  };
+
+  if (err.code) {
+    payload.code = err.code;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    payload.stack = err.stack;
+  }
+
+  res.status(statusCode).json(payload);
+};
+```
+
+## HTTP Status Codes
+
+The API uses standard HTTP status codes:
+
+| Status Code | Meaning | When Used |
+|-------------|---------|------------|
+| 200 | OK | Successful GET, PUT, PATCH requests |
+| 201 | Created | Successful POST requests (resource created) |
+| 400 | Bad Request | Missing required fields, invalid input |
+| 404 | Not Found | Resource or route not found |
+| 500 | Internal Server Error | Unexpected server errors |
+
+## Common Error Scenarios
+
+### Missing Required Fields
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/api/customers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "customer@example.com"
+  }'
+```
+
+**Response (400):**
+```json
+{
+  "status": false,
+  "message": "email, name y phone son requeridos"
+}
+```
+
+### Invalid Payment Intent ID
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/api/payments/confirm \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+**Response (400):**
+```json
+{
+  "status": false,
+  "message": "paymentId es requerido"
+}
+```
+
+### Invalid Card Token
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/api/cards/assign \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "cus_invalid",
+    "source": "tok_invalid"
+  }'
+```
+
+**Response (400-500):**
+```json
+{
+  "status": false,
+  "message": "No such token: tok_invalid",
+  "code": "resource_missing"
+}
+```
+
+### Route Not Found
+
+**Request:**
+```bash
+curl http://localhost:3000/api/invalid-route
+```
+
+**Response (404):**
+```json
+{
+  "status": false,
+  "message": "Route not found: /api/invalid-route"
+}
+```
+
+### Invalid Refund Amount
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/api/payments/refund \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chargeId": "ch_xxxxx",
+    "amount": -10
+  }'
+```
+
+**Response (400):**
+```json
+{
+  "status": false,
+  "message": "amount debe ser un número mayor a 0"
+}
+```
+
+## Stripe Error Codes
+
+When Stripe API calls fail, the error includes a Stripe error code:
+
+<CodeGroup>
+
+```json Card Declined
+{
+  "status": false,
+  "message": "Your card was declined",
+  "code": "card_declined"
+}
+```
+
+```json Insufficient Funds
+{
+  "status": false,
+  "message": "Your card has insufficient funds",
+  "code": "insufficient_funds"
+}
+```
+
+```json Expired Card
+{
+  "status": false,
+  "message": "Your card has expired",
+  "code": "expired_card"
+}
+```
+
+```json Invalid CVC
+{
+  "status": false,
+  "message": "Your card's security code is incorrect",
+  "code": "incorrect_cvc"
+}
+```
+
+</CodeGroup>
+
+### Common Stripe Error Codes
+
+| Code | Description | Action |
+|------|-------------|--------|
+| `card_declined` | Card was declined | Ask customer to use different card |
+| `insufficient_funds` | Insufficient funds | Request payment with different method |
+| `expired_card` | Card expired | Request updated card details |
+| `incorrect_cvc` | Invalid CVC | Request correct CVC code |
+| `processing_error` | Payment processing error | Retry the payment |
+| `resource_missing` | Resource not found | Verify the ID is correct |
+| `invalid_request_error` | Invalid API request | Check request parameters |
+
+## Error Handling in Client Code
+
+Here's how to handle errors in your client application:
+
+<CodeGroup>
+
+```javascript JavaScript/Node.js
+try {
+  const response = await fetch('http://localhost:3000/api/payments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customer_id: customerId,
+      amount: 50.00,
+      payment_method: paymentMethod
+    })
+  });
+
+  const data = await response.json();
+
+  if (!data.status) {
+    // Handle error
+    console.error('Payment failed:', data.message);
+    
+    // Check for specific error codes
+    if (data.code === 'card_declined') {
+      alert('Your card was declined. Please use a different card.');
+    }
+    
+    return;
+  }
+
+  // Handle success
+  console.log('Payment created:', data.data);
+} catch (error) {
+  // Handle network errors
+  console.error('Network error:', error);
+}
+```
+
+```python Python
+import requests
+
+try:
+    response = requests.post(
+        'http://localhost:3000/api/payments',
+        json={
+            'customer_id': customer_id,
+            'amount': 50.00,
+            'payment_method': payment_method
+        }
+    )
+    
+    data = response.json()
+    
+    if not data.get('status'):
+        # Handle error
+        print(f"Payment failed: {data['message']}")
+        
+        # Check for specific error codes
+        if data.get('code') == 'card_declined':
+            print('Card was declined. Please use a different card.')
+        
+        return
+    
+    # Handle success
+    print(f"Payment created: {data['data']}")
+    
+except requests.exceptions.RequestException as e:
+    # Handle network errors
+    print(f"Network error: {e}")
+```
+
+```php PHP
+<?php
+
+$ch = curl_init('http://localhost:3000/api/payments');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+    'customer_id' => $customerId,
+    'amount' => 50.00,
+    'payment_method' => $paymentMethod
+]));
+
+$response = curl_exec($ch);
+$data = json_decode($response, true);
+
+if (!$data['status']) {
+    // Handle error
+    error_log('Payment failed: ' . $data['message']);
+    
+    // Check for specific error codes
+    if (isset($data['code']) && $data['code'] === 'card_declined') {
+        echo 'Your card was declined. Please use a different card.';
+    }
+    
+    curl_close($ch);
+    return;
+}
+
+// Handle success
+echo 'Payment created: ' . print_r($data['data'], true);
+curl_close($ch);
+```
+
+</CodeGroup>
+
+## Best Practices
+
+<Card title="Check Response Status" icon="check-circle">
+  Always check the `status` field in the response before processing data:
+  ```javascript
+  if (!response.status) {
+    // Handle error
+  }
+  ```
+</Card>
+
+<Card title="Handle Specific Error Codes" icon="code">
+  Use the `code` field to provide specific error messages to users:
+  ```javascript
+  if (data.code === 'card_declined') {
+    // Show user-friendly message
+  }
+  ```
+</Card>
+
+<Card title="Log Errors for Debugging" icon="file-lines">
+  In development, use the stack trace for debugging:
+  ```javascript
+  if (process.env.NODE_ENV !== 'production' && data.stack) {
+    console.error(data.stack);
+  }
+  ```
+</Card>
+
+<Card title="Retry Logic" icon="rotate">
+  Implement retry logic for transient errors:
+  ```javascript
+  if (statusCode === 500 || statusCode === 503) {
+    // Retry with exponential backoff
+  }
+  ```
+</Card>
+
+## Webhook Error Handling
+
+Webhook endpoints have specific error handling:
+
+### Missing Signature
+
+```json
+{
+  "status": false,
+  "message": "Missing stripe-signature header"
+}
+```
+
+### Missing Webhook Secret
+
+```json
+{
+  "status": false,
+  "message": "Missing STRIPE_WEBHOOK_SECRET in environment variables"
+}
+```
+
+### Signature Verification Failed
+
+```json
+{
+  "status": false,
+  "message": "Webhook signature verification failed: No signatures found matching the expected signature for payload"
+}
+```
+
+<Warning>
+  Always return a 200 status code for successfully received webhooks, even if your business logic fails. This prevents Stripe from retrying valid events.
+</Warning>
+
+## Development vs Production
+
+### Development Mode
+
+- Includes full stack traces in error responses
+- More verbose error messages
+- Logs all errors to console
+
+**Example Response:**
+
+```json
+{
+  "status": false,
+  "message": "email, name y phone son requeridos",
+  "stack": "Error: email, name y phone son requeridos\n    at createCustomer (...)\n    at ..."
+}
+```
+
+### Production Mode
+
+- No stack traces in responses
+- Sanitized error messages
+- Errors logged to monitoring systems
+
+**Example Response:**
+
+```json
+{
+  "status": false,
+  "message": "email, name y phone son requeridos"
+}
+```
+
+## Next Steps
+
+- Follow the [complete payment workflow](/guides/complete-workflow)
+- Learn about [webhook testing](/guides/testing-webhooks)
+- Set up [Docker deployment](/guides/docker-deployment)

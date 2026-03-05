@@ -1,0 +1,172 @@
+---
+title: 'Create Card Token'
+description: 'Tokenize a credit card securely using Stripe'
+api: 'POST /api/cards/create'
+---
+
+<Note>
+  Never store raw card data on your servers. This endpoint creates a secure token through Stripe that represents the card information.
+</Note>
+
+Creates a token representing a credit card. The token can then be used to attach the card to a customer or make a payment. This approach ensures PCI compliance by never storing sensitive card data on your servers.
+
+## Request Body
+
+<ParamField body="number" type="string" required>
+  The card number, as a string without any separators.
+  
+  For testing, use Stripe test card: `4242424242424242`
+</ParamField>
+
+<ParamField body="exp_month" type="string" required>
+  The card's expiration month (1-12).
+  
+  Example: `"12"`
+</ParamField>
+
+<ParamField body="exp_year" type="string" required>
+  The card's expiration year as a 4-digit number.
+  
+  Example: `"2026"`
+</ParamField>
+
+<ParamField body="cvc" type="string" required>
+  The card's CVC/CVV security code.
+  
+  Example: `"123"`
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="boolean">
+  Indicates if the request was successful (`true`) or failed (`false`).
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message describing the result.
+  
+  Example: `"Tarjeta tokenizada correctamente"`
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The tokenized card data.
+  
+  <Expandable title="Card Token Object">
+    <ResponseField name="token_id" type="string">
+      The Stripe token ID that represents the card. Starts with `tok_`.
+      
+      Example: `"tok_1234567890abcdef"`
+    </ResponseField>
+    
+    <ResponseField name="card_id" type="string">
+      The unique card ID from Stripe. Starts with `card_`.
+      
+      Example: `"card_1234567890abcdef"`
+    </ResponseField>
+    
+    <ResponseField name="card_brand" type="string">
+      The card brand (Visa, MasterCard, American Express, etc.).
+      
+      Example: `"Visa"`
+    </ResponseField>
+    
+    <ResponseField name="card_last4" type="string">
+      The last 4 digits of the card number.
+      
+      Example: `"4242"`
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Request
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://your-api.com/api/cards/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "number": "4242424242424242",
+    "exp_month": "12",
+    "exp_year": "2026",
+    "cvc": "123"
+  }'
+```
+
+```javascript Node.js
+const response = await fetch('https://your-api.com/api/cards/create', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    number: '4242424242424242',
+    exp_month: '12',
+    exp_year: '2026',
+    cvc: '123'
+  })
+});
+
+const data = await response.json();
+console.log(data);
+```
+</CodeGroup>
+
+## Example Response
+
+<CodeGroup>
+```json 201 - Success
+{
+  "status": true,
+  "message": "Tarjeta tokenizada correctamente",
+  "data": {
+    "token_id": "tok_1QRs9eKZ4xUzN2TP9vQqWXYZ",
+    "card_id": "card_1QRs9eKZ4xUzN2TPabcdefgh",
+    "card_brand": "Visa",
+    "card_last4": "4242"
+  }
+}
+```
+
+```json 400 - Bad Request
+{
+  "status": false,
+  "message": "number, exp_month, exp_year y cvc son requeridos",
+  "code": null
+}
+```
+
+```json 400 - Invalid Card
+{
+  "status": false,
+  "message": "Your card number is incorrect.",
+  "code": "incorrect_number"
+}
+```
+
+```json 500 - Server Error
+{
+  "status": false,
+  "message": "Error creating card token",
+  "code": null
+}
+```
+</CodeGroup>
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `incorrect_number` | The card number is incorrect |
+| `invalid_expiry_month` | The expiration month is invalid |
+| `invalid_expiry_year` | The expiration year is invalid |
+| `invalid_cvc` | The CVC/CVV code is invalid |
+| `card_declined` | The card was declined by the issuer |
+
+<Note>
+  **Test Cards**: Use Stripe's test card numbers for development:
+  - Success: `4242424242424242`
+  - Declined: `4000000000000002`
+  - Insufficient funds: `4000000000009995`
+  
+  See [Stripe's test cards documentation](https://stripe.com/docs/testing) for more.
+</Note>

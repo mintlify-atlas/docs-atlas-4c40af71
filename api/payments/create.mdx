@@ -1,0 +1,179 @@
+---
+title: 'Create Payment Intent'
+description: 'Create a new payment intent to process a payment'
+icon: 'credit-card'
+---
+
+## POST /api/payments/create
+
+Creates a new payment intent in Stripe. A payment intent represents an intention to collect payment from a customer and tracks the lifecycle of the payment process from creation through completion.
+
+<Note>
+  The amount should be provided in the **smallest currency unit** (e.g., cents for USD, centavos for EUR). For example, to charge €10.00, pass `1000`.
+</Note>
+
+### Request Body
+
+<ParamField body="amount" type="integer" required>
+  The amount to charge in the smallest currency unit (cents). The API will multiply this by 100 internally.
+  
+  Example: `1000` for €10.00
+</ParamField>
+
+<ParamField body="customer_id" type="string" required>
+  The Stripe customer ID to charge. Must be a valid Stripe customer ID starting with `cus_`.
+  
+  Example: `cus_NffrFeUfNV2Hib`
+</ParamField>
+
+<ParamField body="payment_method" type="string" required>
+  The payment method ID to use for this payment. Must be a valid Stripe payment method ID starting with `pm_`.
+  
+  Example: `pm_1Nvmn6LkdIwHu7ix`
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message describing the result
+  
+  Example: `Intento de pago creado correctamente`
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The Stripe PaymentIntent object
+  
+  <Expandable title="PaymentIntent Object">
+    <ResponseField name="id" type="string">
+      Unique identifier for the payment intent (starts with `pi_`)
+    </ResponseField>
+    
+    <ResponseField name="amount" type="integer">
+      The amount in cents (after internal multiplication by 100)
+    </ResponseField>
+    
+    <ResponseField name="currency" type="string">
+      Three-letter ISO currency code (always `eur` for this API)
+    </ResponseField>
+    
+    <ResponseField name="customer" type="string">
+      The customer ID associated with this payment
+    </ResponseField>
+    
+    <ResponseField name="payment_method" type="string">
+      The payment method ID to be used
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      The status of the payment intent: `requires_payment_method`, `requires_confirmation`, `requires_action`, `processing`, `succeeded`, `canceled`
+    </ResponseField>
+    
+    <ResponseField name="client_secret" type="string">
+      Secret key used to complete the payment on the client side
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Success Response
+
+<CodeGroup>
+```json 201 Created
+{
+  "status": true,
+  "message": "Intento de pago creado correctamente",
+  "data": {
+    "id": "pi_3OJxRe2eZvKYlo2C0XYZ1234",
+    "object": "payment_intent",
+    "amount": 100000,
+    "currency": "eur",
+    "customer": "cus_NffrFeUfNV2Hib",
+    "payment_method": "pm_1Nvmn6LkdIwHu7ix",
+    "payment_method_types": ["card"],
+    "status": "requires_confirmation",
+    "client_secret": "pi_3OJxRe2eZvKYlo2C0XYZ1234_secret_abcdefghij",
+    "created": 1672531200,
+    "livemode": false
+  }
+}
+```
+</CodeGroup>
+
+### Error Responses
+
+<CodeGroup>
+```json 400 Bad Request
+{
+  "status": false,
+  "message": "customer_id, amount y payment_method son requeridos",
+  "code": null
+}
+```
+
+```json 402 Payment Required
+{
+  "status": false,
+  "message": "Your card was declined",
+  "code": "card_declined"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "status": false,
+  "message": "Error interno del servidor",
+  "code": null
+}
+```
+</CodeGroup>
+
+### Code Examples
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.example.com/api/payments/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "amount": 1000,
+    "customer_id": "cus_NffrFeUfNV2Hib",
+    "payment_method": "pm_1Nvmn6LkdIwHu7ix"
+  }'
+```
+
+```javascript JavaScript/Node.js
+const createPayment = async () => {
+  const response = await fetch('https://api.example.com/api/payments/create', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer YOUR_API_KEY'
+    },
+    body: JSON.stringify({
+      amount: 1000, // €10.00
+      customer_id: 'cus_NffrFeUfNV2Hib',
+      payment_method: 'pm_1Nvmn6LkdIwHu7ix'
+    })
+  });
+  
+  const data = await response.json();
+  console.log(data.data.id); // pi_3OJxRe2eZvKYlo2C0XYZ1234
+  return data;
+};
+```
+</CodeGroup>
+
+## Payment Intent Lifecycle
+
+After creating a payment intent, it typically follows this flow:
+
+1. **Created** - Payment intent is created with status `requires_confirmation`
+2. **Confirmed** - Call the [confirm endpoint](/api/payments/confirm) to process the payment
+3. **Succeeded** - Payment completes successfully
+
+<Warning>
+  Note that the API multiplies the amount by 100 internally. If you pass `1000`, the actual charge will be €100,000.00 (1000 × 100 cents). Make sure you're passing the correct amount in cents.
+</Warning>

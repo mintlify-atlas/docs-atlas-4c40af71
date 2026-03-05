@@ -1,0 +1,107 @@
+---
+title: Introduction
+description: A comprehensive Node.js API for Stripe payment processing
+---
+
+## What is the Stripe Payments API?
+
+This API provides a robust, production-ready backend for integrating Stripe payment processing into your applications. Built with Node.js and Express, it offers a modular, domain-driven architecture that simplifies payment operations, customer management, and card handling.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Customer Management" icon="users">
+    Create, update, retrieve, and delete Stripe customers with complete CRUD operations
+  </Card>
+  
+  <Card title="Payment Processing" icon="credit-card">
+    Create payment intents, confirm payments, retrieve payment details, and process refunds
+  </Card>
+  
+  <Card title="Card Management" icon="wallet">
+    Add payment methods, set default cards, and retrieve cards by customer ID
+  </Card>
+  
+  <Card title="Webhook Support" icon="bolt">
+    Handle Stripe webhook events with automatic signature verification for secure event processing
+  </Card>
+</CardGroup>
+
+## Architecture Overview
+
+The API follows a clean, modular domain structure that separates concerns and promotes maintainability:
+
+```
+src/
+├── api/
+│   ├── customers/     # Customer management endpoints
+│   ├── payments/      # Payment processing endpoints
+│   ├── cards/         # Card management endpoints
+│   └── webhooks/      # Stripe webhook handlers
+├── config/            # Stripe SDK configuration
+├── middlewares/       # Error handling and async wrappers
+├── utils/             # Response helpers and error classes
+└── docs/              # Swagger/OpenAPI documentation
+```
+
+Each domain module is self-contained with its own routes and business logic, making it easy to extend and maintain.
+
+## Technology Stack
+
+<CardGroup cols={2}>
+  <Card title="Runtime" icon="node">
+    **Node.js 22.x** with ES modules for modern JavaScript features
+  </Card>
+  
+  <Card title="Framework" icon="server">
+    **Express 4.18** for robust HTTP server and middleware support
+  </Card>
+  
+  <Card title="Payment SDK" icon="stripe">
+    **Stripe SDK 11.6** for seamless Stripe API integration
+  </Card>
+  
+  <Card title="Documentation" icon="book">
+    **Swagger UI** with OpenAPI 3.0 spec for interactive API docs
+  </Card>
+</CardGroup>
+
+## API Capabilities
+
+### Customers
+- Create new customers with email, name, and phone
+- Retrieve customer details by ID
+- List all customers
+- Update customer information
+- Delete customers
+
+### Payments
+- Create payment intents with automatic amount conversion
+- Confirm payments with various payment methods
+- Retrieve payment details by ID
+- List all payments
+- Process refunds with full or partial amounts
+- Query refunds by payment intent
+
+### Cards
+- Add payment methods to customers
+- Set default payment methods
+- Retrieve all cards for a customer
+
+### Webhooks
+- Automatic signature verification
+- Handle payment success/failure events
+- Process refund events
+- Extensible event handler system
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Get up and running in 5 minutes
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/customers/create">
+    Explore all available endpoints
+  </Card>
+</CardGroup>

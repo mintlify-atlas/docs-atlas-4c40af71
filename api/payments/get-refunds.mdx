@@ -1,0 +1,304 @@
+---
+title: 'List Refunds by Payment Intent'
+description: 'Retrieve all refunds associated with a payment intent'
+icon: 'list-check'
+---
+
+## GET /api/payments/refund/payment-intent/:paymentIntentId
+
+Retrieves a list of all refunds associated with a specific payment intent. This is useful for tracking refund history and verifying which charges have been refunded.
+
+### Path Parameters
+
+<ParamField path="paymentIntentId" type="string" required>
+  The unique identifier for the payment intent. Must be a valid Stripe payment intent ID starting with `pi_`.
+  
+  Example: `pi_3OJxRe2eZvKYlo2C0XYZ1234`
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message describing the result
+  
+  Example: `Reembolsos obtenidos correctamente`
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Stripe's list response object containing refunds
+  
+  <Expandable title="List Object">
+    <ResponseField name="object" type="string">
+      Always `list`
+    </ResponseField>
+    
+    <ResponseField name="data" type="array">
+      Array of Refund objects
+      
+      <Expandable title="Refund Object">
+        <ResponseField name="id" type="string">
+          Unique identifier for the refund (starts with `re_`)
+        </ResponseField>
+        
+        <ResponseField name="object" type="string">
+          Always `refund`
+        </ResponseField>
+        
+        <ResponseField name="amount" type="integer">
+          The refunded amount in cents
+        </ResponseField>
+        
+        <ResponseField name="charge" type="string">
+          The charge ID that was refunded (starts with `ch_`)
+        </ResponseField>
+        
+        <ResponseField name="currency" type="string">
+          Three-letter ISO currency code
+        </ResponseField>
+        
+        <ResponseField name="payment_intent" type="string">
+          The payment intent ID associated with the refund
+        </ResponseField>
+        
+        <ResponseField name="reason" type="string">
+          The reason for the refund: `duplicate`, `fraudulent`, `requested_by_customer`, or `null`
+        </ResponseField>
+        
+        <ResponseField name="status" type="string">
+          The refund status:
+          - `succeeded` - Refund was successful
+          - `pending` - Refund is being processed
+          - `failed` - Refund failed
+          - `canceled` - Refund was canceled
+        </ResponseField>
+        
+        <ResponseField name="created" type="integer">
+          Unix timestamp of when the refund was created
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="has_more" type="boolean">
+      Whether there are more results available (always false due to limit of 100)
+    </ResponseField>
+    
+    <ResponseField name="url" type="string">
+      The Stripe API URL for this list
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Success Response
+
+<CodeGroup>
+```json 200 OK - Multiple Refunds
+{
+  "status": true,
+  "message": "Reembolsos obtenidos correctamente",
+  "data": {
+    "object": "list",
+    "data": [
+      {
+        "id": "re_3OJxRe2eZvKYlo2C0XYZ9999",
+        "object": "refund",
+        "amount": 50000,
+        "charge": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+        "currency": "eur",
+        "payment_intent": "pi_3OJxRe2eZvKYlo2C0XYZ1234",
+        "reason": "requested_by_customer",
+        "status": "succeeded",
+        "created": 1672617600
+      },
+      {
+        "id": "re_3OJxRe2eZvKYlo2C0DEF0000",
+        "object": "refund",
+        "amount": 25000,
+        "charge": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+        "currency": "eur",
+        "payment_intent": "pi_3OJxRe2eZvKYlo2C0XYZ1234",
+        "reason": "duplicate",
+        "status": "succeeded",
+        "created": 1672704000
+      }
+    ],
+    "has_more": false,
+    "url": "/v1/refunds"
+  }
+}
+```
+
+```json 200 OK - No Refunds
+{
+  "status": true,
+  "message": "Reembolsos obtenidos correctamente",
+  "data": {
+    "object": "list",
+    "data": [],
+    "has_more": false,
+    "url": "/v1/refunds"
+  }
+}
+```
+</CodeGroup>
+
+### Error Responses
+
+<CodeGroup>
+```json 400 Bad Request
+{
+  "status": false,
+  "message": "paymentIntentId es requerido",
+  "code": null
+}
+```
+
+```json 500 Internal Server Error
+{
+  "status": false,
+  "message": "Error interno del servidor",
+  "code": null
+}
+```
+</CodeGroup>
+
+### Code Examples
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.example.com/api/payments/refund/payment-intent/pi_3OJxRe2eZvKYlo2C0XYZ1234 \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript JavaScript/Node.js
+const getRefundsByPaymentIntent = async (paymentIntentId) => {
+  const response = await fetch(
+    `https://api.example.com/api/payments/refund/payment-intent/${paymentIntentId}`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer YOUR_API_KEY'
+      }
+    }
+  );
+  
+  const data = await response.json();
+  const refunds = data.data.data;
+  
+  console.log(`Found ${refunds.length} refunds`);
+  
+  refunds.forEach(refund => {
+    console.log(`Refund ${refund.id}: €${refund.amount / 100}`);
+    console.log(`  Status: ${refund.status}`);
+    console.log(`  Reason: ${refund.reason || 'None provided'}`);
+  });
+  
+  return data;
+};
+
+// Usage
+getRefundsByPaymentIntent('pi_3OJxRe2eZvKYlo2C0XYZ1234');
+```
+</CodeGroup>
+
+## Use Cases
+
+### Calculate Total Refunded Amount
+
+```javascript
+const getTotalRefunded = async (paymentIntentId) => {
+  const response = await fetch(`/api/payments/refund/payment-intent/${paymentIntentId}`);
+  const { data } = await response.json();
+  
+  const totalRefunded = data.data.reduce((sum, refund) => {
+    return sum + (refund.status === 'succeeded' ? refund.amount : 0);
+  }, 0);
+  
+  console.log(`Total refunded: €${totalRefunded / 100}`);
+  return totalRefunded;
+};
+```
+
+### Check if Payment is Fully Refunded
+
+```javascript
+const isFullyRefunded = async (paymentIntentId) => {
+  // Get payment intent to get original amount
+  const paymentResponse = await fetch(`/api/payments/${paymentIntentId}`);
+  const { data: payment } = await paymentResponse.json();
+  
+  // Get all refunds
+  const refundsResponse = await fetch(`/api/payments/refund/payment-intent/${paymentIntentId}`);
+  const { data: refunds } = await refundsResponse.json();
+  
+  // Calculate total refunded
+  const totalRefunded = refunds.data.reduce((sum, refund) => {
+    return sum + (refund.status === 'succeeded' ? refund.amount : 0);
+  }, 0);
+  
+  return totalRefunded >= payment.amount;
+};
+
+// Usage
+if (await isFullyRefunded('pi_3OJxRe2eZvKYlo2C0XYZ1234')) {
+  console.log('This payment has been fully refunded');
+}
+```
+
+### List Refunds with Details
+
+```javascript
+const listRefundDetails = async (paymentIntentId) => {
+  const response = await fetch(`/api/payments/refund/payment-intent/${paymentIntentId}`);
+  const { data } = await response.json();
+  
+  const refundDetails = data.data.map(refund => ({
+    id: refund.id,
+    amount: `€${refund.amount / 100}`,
+    status: refund.status,
+    reason: refund.reason || 'Not specified',
+    date: new Date(refund.created * 1000).toLocaleDateString(),
+    chargeId: refund.charge
+  }));
+  
+  console.table(refundDetails);
+  return refundDetails;
+};
+```
+
+### Filter Refunds by Reason
+
+```javascript
+const getRefundsByReason = async (paymentIntentId, reason) => {
+  const response = await fetch(`/api/payments/refund/payment-intent/${paymentIntentId}`);
+  const { data } = await response.json();
+  
+  const filtered = data.data.filter(refund => refund.reason === reason);
+  
+  console.log(`Found ${filtered.length} refunds with reason: ${reason}`);
+  return filtered;
+};
+
+// Usage
+const customerRequestedRefunds = await getRefundsByReason(
+  'pi_3OJxRe2eZvKYlo2C0XYZ1234',
+  'requested_by_customer'
+);
+```
+
+## Notes
+
+<Note>
+  The API returns up to 100 refunds per request. For payment intents with more than 100 refunds, you would need to implement pagination (though this is rare in practice).
+</Note>
+
+<Note>
+  Refunds are listed in reverse chronological order, with the most recent refunds appearing first.
+</Note>
+
+<Warning>
+  This endpoint returns refunds specifically for the given payment intent. If you need to list refunds by charge ID or across multiple payment intents, you'll need to call this endpoint multiple times or query Stripe directly.
+</Warning>

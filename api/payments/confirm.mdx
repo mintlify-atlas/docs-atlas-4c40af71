@@ -1,0 +1,223 @@
+---
+title: 'Confirm Payment Intent'
+description: 'Confirm a payment intent to complete the payment'
+icon: 'check-circle'
+---
+
+## POST /api/payments/confirm
+
+Confirms a payment intent and attempts to complete the payment. This endpoint should be called after creating a payment intent to actually charge the customer's payment method.
+
+<Note>
+  You may want to confirm separately from creation when you need to:
+  - Collect additional customer information before charging
+  - Verify inventory availability before completing the payment
+  - Implement a two-step checkout process
+  - Handle 3D Secure authentication flows
+</Note>
+
+### When to Use Manual Confirmation
+
+By default, payment intents created through this API require manual confirmation. This gives you control over when the payment is actually processed:
+
+- **Separate confirmation**: Create the payment intent first, then confirm it in a separate step (use this endpoint)
+- **Auto-confirmation**: Pass `confirm: true` when creating the payment intent to skip this step
+
+### Request Body
+
+<ParamField body="paymentId" type="string" required>
+  The payment intent ID to confirm. Must be a valid Stripe payment intent ID starting with `pi_`.
+  
+  Example: `pi_3OJxRe2eZvKYlo2C0XYZ1234`
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message describing the result
+  
+  Example: `Pago confirmado correctamente`
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The confirmed Stripe PaymentIntent object
+  
+  <Expandable title="PaymentIntent Object">
+    <ResponseField name="id" type="string">
+      Unique identifier for the payment intent (starts with `pi_`)
+    </ResponseField>
+    
+    <ResponseField name="amount" type="integer">
+      The amount in cents
+    </ResponseField>
+    
+    <ResponseField name="currency" type="string">
+      Three-letter ISO currency code
+    </ResponseField>
+    
+    <ResponseField name="customer" type="string">
+      The customer ID associated with this payment
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      The updated status after confirmation: `processing`, `requires_action`, `succeeded`, or `canceled`
+    </ResponseField>
+    
+    <ResponseField name="charges" type="object">
+      Information about the charges made
+      
+      <Expandable title="Charges">
+        <ResponseField name="data" type="array">
+          Array of charge objects (each with ID starting with `ch_`)
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="latest_charge" type="string">
+      The ID of the most recent charge (starts with `ch_`)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Success Response
+
+<CodeGroup>
+```json 200 OK
+{
+  "status": true,
+  "message": "Pago confirmado correctamente",
+  "data": {
+    "id": "pi_3OJxRe2eZvKYlo2C0XYZ1234",
+    "object": "payment_intent",
+    "amount": 100000,
+    "currency": "eur",
+    "customer": "cus_NffrFeUfNV2Hib",
+    "payment_method": "pm_1Nvmn6LkdIwHu7ix",
+    "status": "succeeded",
+    "charges": {
+      "object": "list",
+      "data": [
+        {
+          "id": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+          "object": "charge",
+          "amount": 100000,
+          "status": "succeeded",
+          "paid": true
+        }
+      ]
+    },
+    "latest_charge": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+    "created": 1672531200,
+    "livemode": false
+  }
+}
+```
+</CodeGroup>
+
+### Error Responses
+
+<CodeGroup>
+```json 400 Bad Request
+{
+  "status": false,
+  "message": "paymentId es requerido",
+  "code": null
+}
+```
+
+```json 402 Payment Required
+{
+  "status": false,
+  "message": "Your card has insufficient funds",
+  "code": "insufficient_funds"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "status": false,
+  "message": "Error interno del servidor",
+  "code": null
+}
+```
+</CodeGroup>
+
+### Code Examples
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.example.com/api/payments/confirm \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "paymentId": "pi_3OJxRe2eZvKYlo2C0XYZ1234"
+  }'
+```
+
+```javascript JavaScript/Node.js
+const confirmPayment = async (paymentIntentId) => {
+  const response = await fetch('https://api.example.com/api/payments/confirm', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer YOUR_API_KEY'
+    },
+    body: JSON.stringify({
+      paymentId: paymentIntentId
+    })
+  });
+  
+  const data = await response.json();
+  
+  if (data.data.status === 'succeeded') {
+    console.log('Payment successful!');
+    console.log('Charge ID:', data.data.latest_charge);
+  }
+  
+  return data;
+};
+
+// Usage
+confirmPayment('pi_3OJxRe2eZvKYlo2C0XYZ1234');
+```
+</CodeGroup>
+
+## Payment Flow Example
+
+```javascript
+// Step 1: Create payment intent
+const createResponse = await fetch('/api/payments/create', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    amount: 5000,
+    customer_id: 'cus_NffrFeUfNV2Hib',
+    payment_method: 'pm_1Nvmn6LkdIwHu7ix'
+  })
+});
+
+const { data: paymentIntent } = await createResponse.json();
+
+// Step 2: Confirm the payment
+const confirmResponse = await fetch('/api/payments/confirm', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    paymentId: paymentIntent.id
+  })
+});
+
+const { data: confirmedPayment } = await confirmResponse.json();
+
+if (confirmedPayment.status === 'succeeded') {
+  console.log('Payment completed!');
+}
+```
+
+<Warning>
+  If the payment requires additional customer action (like 3D Secure authentication), the status will be `requires_action` instead of `succeeded`. You'll need to handle this on the client side using Stripe.js.
+</Warning>

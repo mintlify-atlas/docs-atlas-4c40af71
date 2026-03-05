@@ -1,0 +1,179 @@
+---
+title: 'Assign Card to Customer'
+description: 'Attach a tokenized card to a Stripe customer'
+api: 'POST /api/cards/assign'
+---
+
+Attaches a tokenized card (source) to an existing Stripe customer. The card becomes a payment method that can be used for future payments.
+
+<Note>
+  You must first create a card token using the [Create Card Token](/api/cards/create-token) endpoint before assigning it to a customer.
+</Note>
+
+## Request Body
+
+<ParamField body="userId" type="string" required>
+  The Stripe customer ID to assign the card to. Must start with `cus_`.
+  
+  Example: `"cus_QRs9eKZ4xUzN2TP9"`
+</ParamField>
+
+<ParamField body="source" type="string" required>
+  The card token ID obtained from creating a card token. Must start with `tok_`.
+  
+  Example: `"tok_1QRs9eKZ4xUzN2TP9vQqWXYZ"`
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="boolean">
+  Indicates if the request was successful (`true`) or failed (`false`).
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message describing the result.
+  
+  Example: `"Tarjeta añadida con éxito"`
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The assigned card information.
+  
+  <Expandable title="Card Assignment Object">
+    <ResponseField name="cardId" type="string">
+      The unique card ID assigned by Stripe. Starts with `card_`.
+      
+      Example: `"card_1QRs9eKZ4xUzN2TPabcdefgh"`
+    </ResponseField>
+    
+    <ResponseField name="brand" type="string">
+      The card brand (Visa, MasterCard, American Express, etc.).
+      
+      Example: `"Visa"`
+    </ResponseField>
+    
+    <ResponseField name="last4" type="string">
+      The last 4 digits of the card number.
+      
+      Example: `"4242"`
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Request
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://your-api.com/api/cards/assign \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "cus_QRs9eKZ4xUzN2TP9",
+    "source": "tok_1QRs9eKZ4xUzN2TP9vQqWXYZ"
+  }'
+```
+
+```javascript Node.js
+const response = await fetch('https://your-api.com/api/cards/assign', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    userId: 'cus_QRs9eKZ4xUzN2TP9',
+    source: 'tok_1QRs9eKZ4xUzN2TP9vQqWXYZ'
+  })
+});
+
+const data = await response.json();
+console.log(data);
+```
+</CodeGroup>
+
+## Example Response
+
+<CodeGroup>
+```json 200 - Success
+{
+  "status": true,
+  "message": "Tarjeta añadida con éxito",
+  "data": {
+    "cardId": "card_1QRs9eKZ4xUzN2TPabcdefgh",
+    "brand": "Visa",
+    "last4": "4242"
+  }
+}
+```
+
+```json 400 - Bad Request
+{
+  "status": false,
+  "message": "userId y source son requeridos",
+  "code": null
+}
+```
+
+```json 404 - Customer Not Found
+{
+  "status": false,
+  "message": "No such customer: cus_invalid",
+  "code": "resource_missing"
+}
+```
+
+```json 400 - Invalid Token
+{
+  "status": false,
+  "message": "No such token: tok_invalid",
+  "code": "resource_missing"
+}
+```
+
+```json 500 - Server Error
+{
+  "status": false,
+  "message": "Error assigning card to customer",
+  "code": null
+}
+```
+</CodeGroup>
+
+## Workflow
+
+The typical workflow for adding a card to a customer:
+
+1. **Tokenize the card** - Call [Create Card Token](/api/cards/create-token) with card details
+2. **Assign to customer** - Use this endpoint to attach the token to a customer
+3. **Set as default** (optional) - Call [Set Default Card](/api/cards/set-default) to make it the default payment method
+
+## Example: Complete Card Assignment Flow
+
+```javascript Node.js
+// Step 1: Create card token
+const tokenResponse = await fetch('https://your-api.com/api/cards/create', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    number: '4242424242424242',
+    exp_month: '12',
+    exp_year: '2026',
+    cvc: '123'
+  })
+});
+const tokenData = await tokenResponse.json();
+
+// Step 2: Assign token to customer
+const assignResponse = await fetch('https://your-api.com/api/cards/assign', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    userId: 'cus_QRs9eKZ4xUzN2TP9',
+    source: tokenData.data.token_id
+  })
+});
+const assignData = await assignResponse.json();
+console.log('Card assigned:', assignData);
+```
+
+<Warning>
+  Card tokens can only be used once. After assigning a token to a customer, the same token cannot be reused.
+</Warning>

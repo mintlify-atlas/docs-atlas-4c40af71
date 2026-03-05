@@ -1,0 +1,283 @@
+---
+title: Authentication
+description: How to authenticate and secure your Stripe Payments API
+---
+
+## Overview
+
+The Stripe Payments API uses **Stripe API keys** for authentication. All requests to Stripe's servers are authenticated using your secret key, which is configured in your environment variables. The API itself does not require authentication for incoming requests - it acts as a backend proxy to Stripe's services.
+
+<Warning>
+  Your Stripe secret key has full access to your Stripe account. Treat it like a password and never expose it in client-side code, version control, or public repositories.
+</Warning>
+
+## Obtaining Stripe API Keys
+
+<Steps>
+  <Step title="Log into Stripe Dashboard">
+    Navigate to your [Stripe Dashboard](https://dashboard.stripe.com) and sign in to your account.
+  </Step>
+
+  <Step title="Access API keys section">
+    Click on **Developers** in the left sidebar, then select **API keys**.
+  </Step>
+
+  <Step title="Choose your environment">
+    Stripe provides two sets of keys:
+    
+    - **Test mode keys** (recommended for development): Start with `sk_test_`
+    - **Production mode keys** (for live transactions): Start with `sk_live_`
+    
+    <Note>
+      Always use test mode keys during development. Test mode keys interact with Stripe's test environment and won't charge real cards.
+    </Note>
+  </Step>
+
+  <Step title="Copy your Secret Key">
+    Under "Standard keys", locate your **Secret key** and click to reveal it. This is the key you'll use in your `.env` file.
+    
+    <Warning>
+      Stripe will only show your live secret key once. If you lose it, you'll need to roll (regenerate) it.
+    </Warning>
+  </Step>
+</Steps>
+
+## Required Environment Variables
+
+The API requires the following environment variables to be configured in your `.env` file:
+
+### Core Variables
+
+```bash .env
+# Stripe secret key (required)
+STRIPE_SECRET_KEY=sk_test_your_secret_key
+
+# Stripe webhook signing secret (required for /api/webhooks/stripe)
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+
+# API configuration
+PORT=3000
+PUBLIC_API_URL=http://localhost:3000
+NODE_ENV=development
+```
+
+### Variable Descriptions
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `STRIPE_SECRET_KEY` | Yes | Your Stripe secret API key for authenticating with Stripe's servers |
+| `STRIPE_WEBHOOK_SECRET` | Yes* | Webhook signing secret for verifying webhook events from Stripe |
+| `PORT` | No | Port number for the API server (defaults to 3000) |
+| `PUBLIC_API_URL` | No | Public URL for the API (used in Swagger docs) |
+| `NODE_ENV` | No | Environment mode: `development`, `production`, or `test` |
+
+<Note>
+  `STRIPE_WEBHOOK_SECRET` is only required if you're using the `/api/webhooks/stripe` endpoint to receive webhook events.
+</Note>
+
+### Legacy Fallback
+
+```bash .env
+# Legacy fallback (optional)
+# Used only if STRIPE_SECRET_KEY is not defined
+VUE_APP_STRIPE_SECRET=
+```
+
+The API supports a legacy environment variable `VUE_APP_STRIPE_SECRET` as a fallback. However, using `STRIPE_SECRET_KEY` is strongly recommended.
+
+## How Authentication Works
+
+### Stripe SDK Configuration
+
+The API initializes the Stripe SDK with your secret key at startup. Here's how it works (from `src/config/stripe.js:1`):
+
+```javascript
+import dotenv from 'dotenv';
+import Stripe from 'stripe';
+
+dotenv.config();
+
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VUE_APP_STRIPE_SECRET;
+
+if (!stripeSecretKey) {
+  throw new Error('Missing STRIPE_SECRET_KEY or VUE_APP_STRIPE_SECRET in environment variables');
+}
+
+const stripe = new Stripe(stripeSecretKey);
+
+export default stripe;
+```
+
+<Note>
+  The API will fail to start if neither `STRIPE_SECRET_KEY` nor `VUE_APP_STRIPE_SECRET` is defined in your environment.
+</Note>
+
+### Request Flow
+
+1. Client sends HTTP request to your API (e.g., `POST /api/customers`)
+2. API receives request and validates input parameters
+3. API calls Stripe SDK methods with your configured secret key
+4. Stripe SDK authenticates the request using your secret key
+5. Stripe processes the request and returns a response
+6. API formats and returns the response to the client
+
+### Webhook Authentication
+
+Webhook endpoints use a different authentication mechanism for security. When Stripe sends webhook events to your `/api/webhooks/stripe` endpoint, it includes a signature in the `stripe-signature` header.
+
+From `src/api/webhooks/stripeWebhook.js:3`:
+
+```javascript
+export const stripeWebhook = (req, res) => {
+  const signature = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    return res.status(500).json({
+      status: false,
+      message: 'Missing STRIPE_WEBHOOK_SECRET in environment variables',
+    });
+  }
+
+  if (!signature) {
+    return res.status(400).json({
+      status: false,
+      message: 'Missing stripe-signature header',
+    });
+  }
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+  } catch (error) {
+    return res.status(400).json({
+      status: false,
+      message: `Webhook signature verification failed: ${error.message}`,
+    });
+  }
+
+  // Process verified webhook event
+  // ...
+}
+```
+
+The `constructEvent` method verifies that the webhook was actually sent by Stripe and hasn't been tampered with.
+
+## Obtaining Webhook Secrets
+
+To get your webhook signing secret:
+
+<Steps>
+  <Step title="Navigate to Webhooks">
+    In the Stripe Dashboard, go to **Developers** → **Webhooks**
+  </Step>
+
+  <Step title="Add endpoint or select existing">
+    Either create a new webhook endpoint or select an existing one
+  </Step>
+
+  <Step title="Copy signing secret">
+    Click **Reveal** under "Signing secret" to view your webhook secret. It starts with `whsec_`
+  </Step>
+
+  <Step title="Configure your endpoint URL">
+    Set your webhook endpoint URL to:
+    ```
+    https://your-domain.com/api/webhooks/stripe
+    ```
+    
+    For local development with webhook testing, use [Stripe CLI](https://stripe.com/docs/stripe-cli) to forward events:
+    ```bash
+    stripe listen --forward-to localhost:3000/api/webhooks/stripe
+    ```
+  </Step>
+</Steps>
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="lock">
+    Store all secrets in `.env` files and never commit them to version control. Add `.env` to your `.gitignore`.
+  </Card>
+  
+  <Card title="Use Test Keys" icon="flask">
+    Always use test mode keys (`sk_test_*`) during development. Only use live keys in production.
+  </Card>
+  
+  <Card title="Rotate Keys Regularly" icon="arrows-rotate">
+    Periodically rotate your API keys, especially if you suspect they may have been exposed.
+  </Card>
+  
+  <Card title="Verify Webhooks" icon="shield-check">
+    Always verify webhook signatures using `STRIPE_WEBHOOK_SECRET` to prevent spoofing attacks.
+  </Card>
+  
+  <Card title="Server-Side Only" icon="server">
+    Never use secret keys in client-side code. This API should run on your backend servers only.
+  </Card>
+  
+  <Card title="HTTPS in Production" icon="lock">
+    Always use HTTPS in production to encrypt data in transit. Stripe requires HTTPS for webhook endpoints.
+  </Card>
+</CardGroup>
+
+## Environment-Specific Configuration
+
+### Development
+
+```bash
+STRIPE_SECRET_KEY=sk_test_xxx
+NODE_ENV=development
+PORT=3000
+PUBLIC_API_URL=http://localhost:3000
+```
+
+### Production
+
+```bash
+STRIPE_SECRET_KEY=sk_live_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+NODE_ENV=production
+PORT=80
+PUBLIC_API_URL=https://api.yourdomain.com
+```
+
+<Warning>
+  In production, ensure your `.env` file has restricted permissions (600) and is only readable by the application user:
+  ```bash
+  chmod 600 .env
+  ```
+</Warning>
+
+## Troubleshooting
+
+### API fails to start
+
+If you see the error `Missing STRIPE_SECRET_KEY or VUE_APP_STRIPE_SECRET in environment variables`, ensure:
+
+1. Your `.env` file exists in the project root
+2. `STRIPE_SECRET_KEY` is defined and has a value
+3. Your `.env` file has the correct format (no quotes around values)
+4. You've restarted the server after modifying `.env`
+
+### Webhook signature verification fails
+
+If webhooks return `Webhook signature verification failed`, check:
+
+1. `STRIPE_WEBHOOK_SECRET` matches the secret shown in your Stripe Dashboard
+2. The webhook endpoint URL in Stripe matches your actual endpoint
+3. You're using the raw request body (the API handles this automatically)
+4. The signing secret is for the correct Stripe account and environment (test vs live)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api/customers/create">
+    Explore all available endpoints and parameters
+  </Card>
+  
+  <Card title="Webhook Events" icon="webhook" href="/api/webhooks/stripe-webhook">
+    Learn how to handle Stripe webhook events
+  </Card>
+</CardGroup>

@@ -1,0 +1,250 @@
+---
+title: Complete Payment Workflow
+description: End-to-end guide for processing payments from customer creation to confirmation
+---
+
+This guide walks you through the complete payment workflow using the Stripe Payments API, from creating a customer to confirming a payment and handling refunds.
+
+## Overview
+
+The complete payment flow consists of the following steps:
+
+1. Create a customer
+2. Create a card token
+3. Assign the card to the customer
+4. Create a payment intent
+5. Confirm the payment
+6. Handle refunds (optional)
+
+<Steps>
+
+### Step 1: Create a Customer
+
+First, create a customer in Stripe with their basic information.
+
+```bash
+curl -X POST http://localhost:3000/api/customers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "customer@example.com",
+    "name": "John Doe",
+    "phone": "+34612345678"
+  }'
+```
+
+**Expected Response:**
+
+```json
+{
+  "status": true,
+  "message": "Cliente creado correctamente",
+  "data": {
+    "id": "cus_xxxxxxxxxx",
+    "email": "customer@example.com",
+    "name": "John Doe",
+    "phone": "+34612345678"
+  }
+}
+```
+
+<Note>
+  Save the `id` from the response - you'll need it for subsequent steps.
+</Note>
+
+### Step 2: Create a Card Token
+
+Tokenize the customer's card details securely. This converts sensitive card information into a one-time-use token.
+
+```bash
+curl -X POST http://localhost:3000/api/cards \
+  -H "Content-Type: application/json" \
+  -d '{
+    "number": "4242424242424242",
+    "exp_month": 12,
+    "exp_year": 2025,
+    "cvc": "123"
+  }'
+```
+
+**Expected Response:**
+
+```json
+{
+  "status": true,
+  "message": "Tarjeta tokenizada correctamente",
+  "data": {
+    "token_id": "tok_xxxxxxxxxx",
+    "card_id": "card_xxxxxxxxxx",
+    "card_brand": "visa",
+    "card_last4": "4242"
+  }
+}
+```
+
+<Warning>
+  The `token_id` is single-use and expires after a short time. Use it immediately in the next step.
+</Warning>
+
+### Step 3: Assign Card to Customer
+
+Attach the tokenized card to the customer account.
+
+```bash
+curl -X POST http://localhost:3000/api/cards/assign \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "cus_xxxxxxxxxx",
+    "source": "tok_xxxxxxxxxx"
+  }'
+```
+
+**Expected Response:**
+
+```json
+{
+  "status": true,
+  "message": "Tarjeta añadida con éxito",
+  "data": {
+    "cardId": "card_xxxxxxxxxx",
+    "brand": "visa",
+    "last4": "4242"
+  }
+}
+```
+
+### Step 4: Create a Payment Intent
+
+Create a payment intent with the amount and payment method. The amount is automatically converted to cents (multiplied by 100) by the API.
+
+```bash
+curl -X POST http://localhost:3000/api/payments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": "cus_xxxxxxxxxx",
+    "amount": 50.00,
+    "payment_method": "card_xxxxxxxxxx"
+  }'
+```
+
+**Expected Response:**
+
+```json
+{
+  "status": true,
+  "message": "Intento de pago creado correctamente",
+  "data": {
+    "id": "pi_xxxxxxxxxx",
+    "amount": 5000,
+    "currency": "eur",
+    "status": "requires_confirmation",
+    "customer": "cus_xxxxxxxxxx",
+    "payment_method": "card_xxxxxxxxxx"
+  }
+}
+```
+
+<Note>
+  The amount in the response is in cents (5000 = €50.00). All payments are processed in EUR.
+</Note>
+
+### Step 5: Confirm the Payment
+
+Finally, confirm the payment intent to complete the transaction.
+
+```bash
+curl -X POST http://localhost:3000/api/payments/confirm \
+  -H "Content-Type: application/json" \
+  -d '{
+    "paymentId": "pi_xxxxxxxxxx"
+  }'
+```
+
+**Expected Response:**
+
+```json
+{
+  "status": true,
+  "message": "Pago confirmado correctamente",
+  "data": {
+    "id": "pi_xxxxxxxxxx",
+    "amount": 5000,
+    "currency": "eur",
+    "status": "succeeded",
+    "charges": {
+      "data": [
+        {
+          "id": "ch_xxxxxxxxxx",
+          "amount": 5000,
+          "paid": true,
+          "status": "succeeded"
+        }
+      ]
+    }
+  }
+}
+```
+
+### Step 6: Handle Refunds (Optional)
+
+If you need to refund a payment, use the charge ID from the confirmed payment.
+
+<CodeGroup>
+
+```bash Full Refund
+curl -X POST http://localhost:3000/api/payments/refund \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chargeId": "ch_xxxxxxxxxx",
+    "reason": "requested_by_customer"
+  }'
+```
+
+```bash Partial Refund
+curl -X POST http://localhost:3000/api/payments/refund \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chargeId": "ch_xxxxxxxxxx",
+    "amount": 25.00,
+    "reason": "requested_by_customer"
+  }'
+```
+
+</CodeGroup>
+
+**Expected Response:**
+
+```json
+{
+  "status": true,
+  "message": "Reembolso creado correctamente",
+  "data": {
+    "id": "re_xxxxxxxxxx",
+    "amount": 2500,
+    "charge": "ch_xxxxxxxxxx",
+    "status": "succeeded",
+    "reason": "requested_by_customer"
+  }
+}
+```
+
+</Steps>
+
+## Implementation Notes
+
+<Card title="Amount Handling" icon="money-bill">
+  When creating payments, provide the amount in your currency (e.g., 50.00). The API automatically multiplies by 100 to convert to cents for Stripe.
+</Card>
+
+<Card title="Currency" icon="euro-sign">
+  All payments are processed in EUR. If you need to support other currencies, you'll need to modify the payment intent creation logic.
+</Card>
+
+<Card title="Payment Method Types" icon="credit-card">
+  Currently, only card payments are supported. The API is configured with `payment_method_types: ['card']` in the payment intent creation.
+</Card>
+
+## Next Steps
+
+- Learn how to [test webhooks locally](/guides/testing-webhooks)
+- Understand [error handling patterns](/guides/error-handling)
+- Set up [Docker deployment](/guides/docker-deployment)

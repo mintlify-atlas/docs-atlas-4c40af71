@@ -1,97 +1,135 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Stripe Payments API"
+description: "Complete backend API for managing Stripe customers, cards, payments, refunds, and webhooks"
 ---
 
-## Setting up
+## Welcome to Stripe Payments API
 
-Get your documentation site up and running in minutes.
+A production-ready Node.js + Express API for integrating Stripe payment processing into your applications. This API provides a complete payment gateway with customer management, card tokenization, payment processing, and webhook handling.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
   >
-    Edit your docs locally and preview them in real time.
+    Get up and running with the API in minutes
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
+    title="API Reference"
     icon="code"
-    href="/essentials/code"
+    href="/api/customers/create"
   >
-    Add sample code to demonstrate how to use your product.
+    Explore all available endpoints
   </Card>
   <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
+    title="Complete Workflow"
+    icon="diagram-project"
+    href="/guides/complete-workflow"
   >
-    Display images and other media.
+    Learn the end-to-end payment flow
   </Card>
   <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
+    title="Docker Deployment"
+    icon="docker"
+    href="/guides/docker-deployment"
   >
-    Write once and reuse across your docs.
+    Deploy using Docker or pull from Docker Hub
   </Card>
-</Columns>
+</CardGroup>
 
-## Need inspiration?
+## Key Features
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<CardGroup cols={2}>
+  <Card
+    title="Customer Management"
+    icon="users"
+    href="/api/customers/create"
+  >
+    Create, update, retrieve, and delete Stripe customers
+  </Card>
+  <Card
+    title="Card Tokenization"
+    icon="credit-card"
+    href="/api/cards/create-token"
+  >
+    Securely tokenize and manage customer payment methods
+  </Card>
+  <Card
+    title="Payment Processing"
+    icon="dollar-sign"
+    href="/api/payments/create"
+  >
+    Create payment intents, confirm charges, and handle refunds
+  </Card>
+  <Card
+    title="Webhook Events"
+    icon="webhook"
+    href="/api/webhooks/stripe-webhook"
+  >
+    Receive and verify Stripe webhook events with signature validation
+  </Card>
+</CardGroup>
+
+## Architecture Highlights
+
+<CardGroup cols={3}>
+  <Card
+    title="Modular Design"
+    icon="puzzle-piece"
+  >
+    Domain-based organization with customers, cards, payments, and webhooks modules
+  </Card>
+  <Card
+    title="Error Handling"
+    icon="shield-check"
+  >
+    Centralized error handling with standardized API responses
+  </Card>
+  <Card
+    title="OpenAPI Docs"
+    icon="book-open"
+  >
+    Complete Swagger documentation available at `/doc` endpoint
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+Create a customer and process a payment:
+
+```javascript
+// 1. Create a customer
+const customer = await fetch('/api/customers/create', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'customer@example.com',
+    name: 'John Doe',
+    phone: '+1234567890'
+  })
+});
+
+// 2. Create and assign a card token
+const card = await fetch('/api/cards/create', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    number: '4242424242424242',
+    exp_month: '12',
+    exp_year: '2025',
+    cvc: '123'
+  })
+});
+
+// 3. Create a payment intent
+const payment = await fetch('/api/payments/create', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    amount: 5000,
+    customer_id: customer.data.id,
+    payment_method: card.data.token_id
+  })
+});
+```

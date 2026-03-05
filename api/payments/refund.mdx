@@ -1,0 +1,320 @@
+---
+title: 'Create Refund'
+description: 'Refund a payment by charge ID'
+icon: 'rotate-left'
+---
+
+## POST /api/payments/refund
+
+Creates a refund for a previously successful charge. You can refund the full amount or a partial amount. Refunds are processed immediately and the funds are returned to the customer's original payment method.
+
+<Note>
+  Refunds require a **charge ID** (starting with `ch_`), not a payment intent ID. You can get the charge ID from the `latest_charge` field of a payment intent or from the `charges.data` array.
+</Note>
+
+### Request Body
+
+<ParamField body="chargeId" type="string" required>
+  The Stripe charge ID to refund. Must be a valid Stripe charge ID starting with `ch_`.
+  
+  Example: `ch_3OJxRe2eZvKYlo2C0ABC5678`
+</ParamField>
+
+<ParamField body="amount" type="number" optional>
+  The amount to refund in the original currency unit (e.g., euros, not cents). If not provided, the full charge amount will be refunded.
+  
+  The API will multiply this by 100 internally to convert to cents.
+  
+  Example: `50.00` to refund €50.00
+</ParamField>
+
+<ParamField body="reason" type="string" optional>
+  The reason for the refund. Must be one of:
+  - `duplicate` - The charge was a duplicate
+  - `fraudulent` - The charge was fraudulent
+  - `requested_by_customer` - The customer requested a refund
+  
+  If not provided, Stripe will not store a specific reason.
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message describing the result
+  
+  Example: `Reembolso creado correctamente`
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The Stripe Refund object
+  
+  <Expandable title="Refund Object">
+    <ResponseField name="id" type="string">
+      Unique identifier for the refund (starts with `re_`)
+    </ResponseField>
+    
+    <ResponseField name="object" type="string">
+      Always `refund`
+    </ResponseField>
+    
+    <ResponseField name="amount" type="integer">
+      The refunded amount in cents
+    </ResponseField>
+    
+    <ResponseField name="charge" type="string">
+      The charge ID that was refunded
+    </ResponseField>
+    
+    <ResponseField name="currency" type="string">
+      Three-letter ISO currency code
+    </ResponseField>
+    
+    <ResponseField name="payment_intent" type="string">
+      The payment intent ID associated with the charge
+    </ResponseField>
+    
+    <ResponseField name="reason" type="string">
+      The reason for the refund: `duplicate`, `fraudulent`, `requested_by_customer`, or `null`
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      The refund status: `succeeded`, `pending`, `failed`, or `canceled`
+    </ResponseField>
+    
+    <ResponseField name="created" type="integer">
+      Unix timestamp of when the refund was created
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Success Response
+
+<CodeGroup>
+```json 201 Created - Full Refund
+{
+  "status": true,
+  "message": "Reembolso creado correctamente",
+  "data": {
+    "id": "re_3OJxRe2eZvKYlo2C0XYZ9999",
+    "object": "refund",
+    "amount": 100000,
+    "charge": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+    "currency": "eur",
+    "payment_intent": "pi_3OJxRe2eZvKYlo2C0XYZ1234",
+    "reason": null,
+    "status": "succeeded",
+    "created": 1672617600
+  }
+}
+```
+
+```json 201 Created - Partial Refund
+{
+  "status": true,
+  "message": "Reembolso creado correctamente",
+  "data": {
+    "id": "re_3OJxRe2eZvKYlo2C0XYZ9999",
+    "object": "refund",
+    "amount": 50000,
+    "charge": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+    "currency": "eur",
+    "payment_intent": "pi_3OJxRe2eZvKYlo2C0XYZ1234",
+    "reason": "requested_by_customer",
+    "status": "succeeded",
+    "created": 1672617600
+  }
+}
+```
+</CodeGroup>
+
+### Error Responses
+
+<CodeGroup>
+```json 400 Bad Request - Missing chargeId
+{
+  "status": false,
+  "message": "chargeId es requerido",
+  "code": null
+}
+```
+
+```json 400 Bad Request - Invalid amount
+{
+  "status": false,
+  "message": "amount debe ser un número mayor a 0",
+  "code": null
+}
+```
+
+```json 404 Not Found
+{
+  "status": false,
+  "message": "No such charge: ch_invalid123",
+  "code": "resource_missing"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "status": false,
+  "message": "Error interno del servidor",
+  "code": null
+}
+```
+</CodeGroup>
+
+### Code Examples
+
+<CodeGroup>
+```bash cURL - Full Refund
+curl -X POST https://api.example.com/api/payments/refund \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "chargeId": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+    "reason": "requested_by_customer"
+  }'
+```
+
+```bash cURL - Partial Refund
+curl -X POST https://api.example.com/api/payments/refund \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "chargeId": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+    "amount": 50.00,
+    "reason": "requested_by_customer"
+  }'
+```
+
+```javascript JavaScript/Node.js - Full Refund
+const refundPayment = async (chargeId, reason = null) => {
+  const response = await fetch('https://api.example.com/api/payments/refund', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer YOUR_API_KEY'
+    },
+    body: JSON.stringify({
+      chargeId: chargeId,
+      reason: reason
+    })
+  });
+  
+  const data = await response.json();
+  const refund = data.data;
+  
+  console.log(`Refund ${refund.id}: €${refund.amount / 100}`);
+  console.log(`Status: ${refund.status}`);
+  
+  return data;
+};
+
+// Usage - Full refund
+refundPayment('ch_3OJxRe2eZvKYlo2C0ABC5678', 'requested_by_customer');
+```
+
+```javascript JavaScript/Node.js - Partial Refund
+const partialRefund = async (chargeId, amount, reason = null) => {
+  const response = await fetch('https://api.example.com/api/payments/refund', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer YOUR_API_KEY'
+    },
+    body: JSON.stringify({
+      chargeId: chargeId,
+      amount: amount,
+      reason: reason
+    })
+  });
+  
+  const data = await response.json();
+  const refund = data.data;
+  
+  console.log(`Partial refund of €${refund.amount / 100} processed`);
+  
+  return data;
+};
+
+// Usage - Partial refund of €50.00
+partialRefund('ch_3OJxRe2eZvKYlo2C0ABC5678', 50.00, 'requested_by_customer');
+```
+</CodeGroup>
+
+## Refund Types
+
+### Full Refund
+
+Omit the `amount` parameter to refund the entire charge amount:
+
+```javascript
+{
+  "chargeId": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+  "reason": "duplicate"
+}
+```
+
+### Partial Refund
+
+Specify an `amount` less than the original charge to refund only part of it:
+
+```javascript
+{
+  "chargeId": "ch_3OJxRe2eZvKYlo2C0ABC5678",
+  "amount": 25.50,  // Refund €25.50 out of €100.00 charge
+  "reason": "requested_by_customer"
+}
+```
+
+<Warning>
+  The `amount` field is in the original currency unit (euros), not cents. The API converts it to cents internally. For a €50.00 refund, pass `50.00`, not `5000`.
+</Warning>
+
+## Refund Reasons
+
+Use these reason codes to help track why refunds are issued:
+
+- **duplicate** - Use when the same charge was processed multiple times
+- **fraudulent** - Use when the charge is suspected or confirmed as fraudulent
+- **requested_by_customer** - Use when the customer asks for a refund
+
+```javascript
+const REFUND_REASONS = {
+  DUPLICATE: 'duplicate',
+  FRAUDULENT: 'fraudulent',
+  CUSTOMER_REQUEST: 'requested_by_customer'
+};
+
+// Usage
+await refundPayment(chargeId, REFUND_REASONS.CUSTOMER_REQUEST);
+```
+
+## Getting the Charge ID
+
+If you only have a payment intent ID, retrieve the charge ID first:
+
+```javascript
+const getChargeIdFromPaymentIntent = async (paymentIntentId) => {
+  const response = await fetch(`/api/payments/${paymentIntentId}`);
+  const { data } = await response.json();
+  
+  // Option 1: Use latest_charge
+  return data.latest_charge;
+  
+  // Option 2: Use first charge from charges array
+  // return data.charges.data[0].id;
+};
+
+// Then refund
+const chargeId = await getChargeIdFromPaymentIntent('pi_3OJxRe2eZvKYlo2C0XYZ1234');
+await refundPayment(chargeId);
+```
+
+<Note>
+  You can issue multiple partial refunds against the same charge, up to the total charge amount. To view all refunds for a payment intent, use the [Get Refunds endpoint](/api/payments/get-refunds).
+</Note>

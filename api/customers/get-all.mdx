@@ -1,0 +1,107 @@
+---
+title: "List Customers"
+description: "Retrieve a list of all customers from Stripe"
+---
+
+## Endpoint
+
+`GET /api/customers`
+
+Retrieves a paginated list of customers from Stripe. By default, returns up to 10 customers.
+
+## Request
+
+This endpoint does not require any parameters.
+
+## Response
+
+<ResponseField name="status" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message describing the result
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Raw Stripe response object containing the paginated list of customers. This includes:
+  
+  <Expandable title="data properties">
+    <ResponseField name="object" type="string">
+      The type of object returned (always "list")
+    </ResponseField>
+    
+    <ResponseField name="data" type="array">
+      Array of customer objects
+    </ResponseField>
+    
+    <ResponseField name="has_more" type="boolean">
+      Whether there are more customers available
+    </ResponseField>
+    
+    <ResponseField name="url" type="string">
+      The URL for this list endpoint
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://your-domain.com/api/customers \
+  -H "Content-Type: application/json"
+```
+
+```javascript JavaScript
+const response = await fetch('https://your-domain.com/api/customers', {
+  method: 'GET',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+const data = await response.json();
+console.log(data);
+```
+</CodeGroup>
+
+## Response Examples
+
+### Success (200)
+```json
+{
+  "status": true,
+  "message": "Clientes listados correctamente",
+  "data": {
+    "object": "list",
+    "data": [
+      {
+        "id": "cus_1234567890abcdef",
+        "email": "customer1@example.com",
+        "name": "John Doe",
+        "phone": "+1234567890",
+        "created": 1234567890
+      },
+      {
+        "id": "cus_0987654321fedcba",
+        "email": "customer2@example.com",
+        "name": "Jane Smith",
+        "phone": "+0987654321",
+        "created": 1234567891
+      }
+    ],
+    "has_more": false,
+    "url": "/v1/customers"
+  }
+}
+```
+
+### Error (500)
+```json
+{
+  "status": false,
+  "message": "Error interno del servidor",
+  "code": null
+}
+```

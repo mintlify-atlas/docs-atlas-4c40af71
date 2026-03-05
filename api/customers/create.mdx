@@ -1,0 +1,121 @@
+---
+title: "Create Customer"
+description: "Create a new customer in Stripe"
+---
+
+## Endpoint
+
+`POST /api/customers/create`
+
+Creates a new customer in Stripe with the provided email, name, and phone number. All three fields are required.
+
+## Request Body
+
+<ParamField body="email" type="string" required>
+  Customer's email address
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Customer's full name
+</ParamField>
+
+<ParamField body="phone" type="string" required>
+  Customer's phone number
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message describing the result
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Customer object containing the created customer information
+  
+  <Expandable title="data properties">
+    <ResponseField name="id" type="string">
+      Unique Stripe customer ID (format: `cus_...`)
+    </ResponseField>
+    
+    <ResponseField name="email" type="string">
+      Customer's email address
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Customer's full name
+    </ResponseField>
+    
+    <ResponseField name="phone" type="string">
+      Customer's phone number
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://your-domain.com/api/customers/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "customer@example.com",
+    "name": "John Doe",
+    "phone": "+1234567890"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://your-domain.com/api/customers/create', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    email: 'customer@example.com',
+    name: 'John Doe',
+    phone: '+1234567890'
+  })
+});
+
+const data = await response.json();
+console.log(data);
+```
+</CodeGroup>
+
+## Response Examples
+
+### Success (201)
+```json
+{
+  "status": true,
+  "message": "Cliente creado correctamente",
+  "data": {
+    "id": "cus_1234567890abcdef",
+    "email": "customer@example.com",
+    "name": "John Doe",
+    "phone": "+1234567890"
+  }
+}
+```
+
+### Error (400)
+```json
+{
+  "status": false,
+  "message": "email, name y phone son requeridos",
+  "code": null
+}
+```
+
+### Error (500)
+```json
+{
+  "status": false,
+  "message": "Error interno del servidor",
+  "code": null
+}
+```

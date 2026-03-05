@@ -1,0 +1,253 @@
+---
+title: 'Get Cards by User'
+description: 'Retrieve all cards associated with a customer'
+api: 'GET /api/cards/:id'
+---
+
+Retrieves a list of all cards (payment sources) associated with a specific customer. This is useful for displaying saved payment methods to users.
+
+## Path Parameters
+
+<ParamField path="id" type="string" required>
+  The Stripe customer ID. Must start with `cus_`.
+  
+  Example: `"cus_QRs9eKZ4xUzN2TP9"`
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="boolean">
+  Indicates if the request was successful (`true`) or failed (`false`).
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message describing the result.
+  
+  Example: `"Tarjetas listadas correctamente"`
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of card objects associated with the customer. Limited to 10 cards.
+  
+  <Expandable title="Card Object">
+    <ResponseField name="id" type="string">
+      The unique card ID from Stripe. Starts with `card_`.
+      
+      Example: `"card_1QRs9eKZ4xUzN2TPabcdefgh"`
+    </ResponseField>
+    
+    <ResponseField name="object" type="string">
+      Always `"card"`.
+    </ResponseField>
+    
+    <ResponseField name="brand" type="string">
+      The card brand (Visa, MasterCard, American Express, Discover, etc.).
+      
+      Example: `"Visa"`
+    </ResponseField>
+    
+    <ResponseField name="last4" type="string">
+      The last 4 digits of the card number.
+      
+      Example: `"4242"`
+    </ResponseField>
+    
+    <ResponseField name="exp_month" type="integer">
+      The card's expiration month (1-12).
+      
+      Example: `12`
+    </ResponseField>
+    
+    <ResponseField name="exp_year" type="integer">
+      The card's expiration year.
+      
+      Example: `2026`
+    </ResponseField>
+    
+    <ResponseField name="country" type="string">
+      Two-letter ISO country code representing the card's country.
+      
+      Example: `"US"`
+    </ResponseField>
+    
+    <ResponseField name="fingerprint" type="string">
+      Unique identifier for the card number.
+    </ResponseField>
+    
+    <ResponseField name="funding" type="string">
+      The card funding type: `credit`, `debit`, `prepaid`, or `unknown`.
+      
+      Example: `"credit"`
+    </ResponseField>
+    
+    <ResponseField name="customer" type="string">
+      The customer ID this card belongs to.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Request
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://your-api.com/api/cards/cus_QRs9eKZ4xUzN2TP9 \
+  -H "Content-Type: application/json"
+```
+
+```javascript Node.js
+const customerId = 'cus_QRs9eKZ4xUzN2TP9';
+const response = await fetch(`https://your-api.com/api/cards/${customerId}`, {
+  method: 'GET',
+  headers: {
+    'Content-Type': 'application/json',
+  }
+});
+
+const data = await response.json();
+console.log(data);
+```
+</CodeGroup>
+
+## Example Response
+
+<CodeGroup>
+```json 200 - Success
+{
+  "status": true,
+  "message": "Tarjetas listadas correctamente",
+  "data": [
+    {
+      "id": "card_1QRs9eKZ4xUzN2TPabcdefgh",
+      "object": "card",
+      "brand": "Visa",
+      "last4": "4242",
+      "exp_month": 12,
+      "exp_year": 2026,
+      "country": "US",
+      "fingerprint": "Xt5EWLLDS7FJjR1c",
+      "funding": "credit",
+      "customer": "cus_QRs9eKZ4xUzN2TP9",
+      "cvc_check": "pass",
+      "address_zip_check": null
+    },
+    {
+      "id": "card_2ABc9eKZ4xUzN2TPxyzdefgh",
+      "object": "card",
+      "brand": "MasterCard",
+      "last4": "5555",
+      "exp_month": 6,
+      "exp_year": 2027,
+      "country": "US",
+      "fingerprint": "Yt6FXMMDS8GKkS2d",
+      "funding": "debit",
+      "customer": "cus_QRs9eKZ4xUzN2TP9",
+      "cvc_check": "pass",
+      "address_zip_check": "pass"
+    }
+  ]
+}
+```
+
+```json 200 - No Cards
+{
+  "status": true,
+  "message": "Tarjetas listadas correctamente",
+  "data": []
+}
+```
+
+```json 400 - Bad Request
+{
+  "status": false,
+  "message": "id es requerido",
+  "code": null
+}
+```
+
+```json 404 - Customer Not Found
+{
+  "status": false,
+  "message": "No such customer: cus_invalid",
+  "code": "resource_missing"
+}
+```
+
+```json 500 - Server Error
+{
+  "status": false,
+  "message": "Error retrieving cards",
+  "code": null
+}
+```
+</CodeGroup>
+
+## Display Cards to Users
+
+Example of displaying saved cards in a user interface:
+
+```javascript React
+import { useState, useEffect } from 'react';
+
+function PaymentMethods({ customerId }) {
+  const [cards, setCards] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchCards() {
+      try {
+        const response = await fetch(`https://your-api.com/api/cards/${customerId}`);
+        const data = await response.json();
+        
+        if (data.status) {
+          setCards(data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching cards:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchCards();
+  }, [customerId]);
+
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <h2>Saved Payment Methods</h2>
+      {cards.length === 0 ? (
+        <p>No cards on file</p>
+      ) : (
+        <ul>
+          {cards.map(card => (
+            <li key={card.id}>
+              {card.brand} ending in {card.last4}
+              <br />
+              Expires {card.exp_month}/{card.exp_year}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+```
+
+## Pagination
+
+The API limits results to 10 cards by default. If a customer has more than 10 cards, you may need to implement pagination (though this is rare in practice).
+
+<Note>
+  **Security Best Practice**: Only show the last 4 digits and brand to users. Never expose full card numbers, even if you have access to them.
+</Note>
+
+## Card Verification Status
+
+Cards in the response include verification fields:
+
+- `cvc_check`: Result of CVC verification (`pass`, `fail`, `unavailable`, or `unchecked`)
+- `address_zip_check`: Result of ZIP code verification (`pass`, `fail`, `unavailable`, or `unchecked`)
+- `address_line1_check`: Result of address verification
+
+These fields help identify the reliability of the payment method.
